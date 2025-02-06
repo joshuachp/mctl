@@ -29,7 +29,7 @@ pub enum Utils {
         shell: Shell,
     },
     /// Generates the Man pages for the program
-    Manpage {
+    Manpages {
         /// Directory to generate the Man pages to.
         out_dir: PathBuf,
     },
@@ -39,7 +39,7 @@ impl Utils {
     pub(crate) fn run(&self) -> eyre::Result<()> {
         match self {
             Utils::Completion { shell } => shell.generate(),
-            Utils::Manpage { out_dir } => {
+            Utils::Manpages { out_dir } => {
                 clap_mangen::generate_to(Cli::command(), out_dir)?;
 
                 Ok(())
