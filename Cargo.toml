@@ -1,6 +1,19 @@
 [package]
 name = "mctl"
+readme = "README.md"
+description = "Cli to manage machines"
 version = "0.1.0"
 edition = "2021"
+license = "MIT OR APACHE-2.0"
+keywords = ["cli", "deploy"]
+repository = "https://github.com/joshuachp/mctl"
+categories = ["command-line-utilities"]
 
 [dependencies]
+clap = { version = "4.5.28", features = ["derive"] }
+clap_complete = "4.5.44"
+clap_mangen = "0.2.26"
+color-eyre = "0.6.3"
+eyre = "0.6.12"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
