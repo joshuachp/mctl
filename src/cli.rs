@@ -8,17 +8,43 @@ use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 #[derive(Debug, Parser)]
 #[clap(version, about, bin_name = env!("CARGO_BIN_NAME"))]
 pub struct Cli {
+    /// Additional configuration file to load.
+    #[arg(long, short)]
+    pub(crate) config: Option<PathBuf>,
+
     #[command(subcommand)]
     pub command: Command,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Manages the secrets
+    Secret {
+        #[command(subcommand)]
+        command: Secret,
+    },
     /// Utility functions like shell completions
     Utils {
         #[command(subcommand)]
         command: Utils,
     },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Secret {
+    /// Edits a secret
+    Edit {
+        /// Path to the secret file
+        file: PathBuf,
+    },
+}
+
+impl Secret {
+    pub(crate) fn run(&self) -> eyre::Result<()> {
+        match self {
+            Secret::Edit { file } => mctl::secret::edit(file),
+        }
+    }
 }
 
 #[derive(Debug, Subcommand)]
