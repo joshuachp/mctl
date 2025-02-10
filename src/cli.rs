@@ -34,6 +34,10 @@ pub enum Command {
 pub enum Secret {
     /// Edits a secret
     Edit {
+        /// Allow a secret to be empty.
+        #[arg(default_value = "false", long)]
+        allow_empty: bool,
+
         /// Path to the secret file
         file: PathBuf,
     },
@@ -42,7 +46,13 @@ pub enum Secret {
 impl Secret {
     pub(crate) fn run(&self) -> eyre::Result<()> {
         match self {
-            Secret::Edit { file } => mctl::secret::edit(file),
+            Secret::Edit { file, allow_empty } => {
+                if file.as_os_str() == "-" {
+                    return mctl::secret::from_stdin();
+                }
+
+                mctl::secret::edit(file, *allow_empty)
+            }
         }
     }
 }
