@@ -1,7 +1,7 @@
 use std::{
     ffi::{OsStr, OsString},
     fs::{self, File},
-    io::{self, Seek},
+    io::{self, stdin, stdout, Seek, Write},
     ops::{Deref, DerefMut},
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
@@ -13,7 +13,8 @@ use age::{
     Decryptor, Identity, Recipient,
 };
 use blake3::Hash;
-use eyre::{bail, Context};
+use color_eyre::{owo_colors::OwoColorize, Section};
+use eyre::{bail, eyre, Context};
 use tracing::{debug, error, info};
 
 use crate::{config::Config, util::random_alpha_num};
@@ -160,7 +161,7 @@ impl DerefMut for SecretFile {
     }
 }
 
-pub fn edit(secret_path: &Path) -> eyre::Result<()> {
+pub fn edit(secret_path: &Path, allow_empty: bool) -> eyre::Result<()> {
     let config = crate::config();
     let cache_dir = config.dirs.cache()?;
 
@@ -186,6 +187,13 @@ pub fn edit(secret_path: &Path) -> eyre::Result<()> {
 
     let mut open_tmp_file = tmp_file.open()?;
 
+    if open_tmp_file.metadata()?.len() == 0 && !allow_empty {
+        return Err(eyre!("secrets cannot be empty")).note(format!(
+            "you can pass the {} option to create an empty secret",
+            "--allow-empty".blue()
+        ));
+    }
+
     if let Some(hash) = hash {
         let new = blake3::Hasher::new()
             .update_reader(&open_tmp_file)?
@@ -201,6 +209,28 @@ pub fn edit(secret_path: &Path) -> eyre::Result<()> {
     }
 
     secret_file.encrypt(config, open_tmp_file)?;
+
+    Ok(())
+}
+
+pub fn from_stdin() -> eyre::Result<()> {
+    let config = crate::config();
+
+    let mut stdin = stdin().lock();
+    let stdout = stdout().lock();
+
+    let recipients = config.secrets.recipients()?;
+    let recipients = recipients.iter().map(|r| r as &dyn Recipient);
+
+    let encriptor = age::Encryptor::with_recipients(recipients)?;
+    let mut writer = encriptor.wrap_output(ArmoredWriter::wrap_output(
+        stdout,
+        age::armor::Format::AsciiArmor,
+    )?)?;
+
+    io::copy(&mut stdin, &mut writer)?;
+
+    writer.finish().and_then(|armor| armor.finish())?.flush()?;
 
     Ok(())
 }
