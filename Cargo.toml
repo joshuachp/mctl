@@ -1,19 +1,26 @@
 [package]
 name = "mctl"
-readme = "README.md"
-description = "Cli to manage machines and configurations"
 version = "0.1.0"
-edition = "2021"
-license = "MIT OR APACHE-2.0"
-keywords = ["cli", "deploy"]
-repository = "https://github.com/joshuachp/mctl"
 categories = ["command-line-utilities"]
+edition = "2021"
+keywords = ["cli", "deploy"]
+license = "MIT OR APACHE-2.0"
+readme = "README.md"
+repository = "https://github.com/joshuachp/mctl"
+description = "Cli to manage machines and configurations"
 
 [dependencies]
+age = { version = "0.11.1", features = ["armor"] }
+blake3 = { version = "1.5.5", features = ["zeroize"] }
 clap = { version = "4.5.28", features = ["derive"] }
 clap_complete = "4.5.44"
 clap_mangen = "0.2.26"
 color-eyre = "0.6.3"
+config = { version = "0.15.7", features = ["toml"], default-features = false }
+dirs = "6.0.0"
 eyre = "0.6.12"
+rand = "0.9.0"
+serde = { version = "1.0.217", features = ["derive"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+zeroize = "1.8.1"
