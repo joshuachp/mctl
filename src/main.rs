@@ -24,6 +24,10 @@ fn main() -> eyre::Result<()> {
     CONFIG.get_or_init(|| config);
 
     match cli.command {
+        cli::Command::Sync { command } => {
+            command.run()?;
+        }
+        cli::Command::Status { command: _ } => todo!(),
         cli::Command::Secret { command } => {
             command.run()?;
         }

@@ -64,6 +64,16 @@ impl Config {
     }
 
     fn validate(self) -> eyre::Result<Self> {
+        if !self.dirs.repository.is_dir() {
+            let err =
+                eyre!("The repository directory must be set to a valid direcotry").note(format!(
+                    "Make sure {} is a valid directory",
+                    self.dirs.repository.display().blue()
+                ));
+
+            return Err(err);
+        };
+
         check_private_file(&self.secrets.key_file)?;
         check_private_file(&self.secrets.recipients_file)?;
 
@@ -209,8 +219,11 @@ impl Default for Secrets {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct Directories {
+    /// Cache directory
     #[serde(default = "default_cache_dir")]
     cache: PathBuf,
+    /// Path to the repository
+    pub(crate) repository: PathBuf,
 }
 
 impl Directories {
