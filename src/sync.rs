@@ -1,29 +1,12 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    fmt::Display,
     fs::{self, DirBuilder, DirEntry, ReadDir},
-    io,
     os::unix::fs::{DirBuilderExt, MetadataExt},
     path::{Path, PathBuf},
 };
 
 use eyre::{OptionExt, WrapErr};
-use serde::Deserialize;
-use tracing::{debug, error, info, instrument, warn};
-
-/// Mode directory configuration `.mode.toml`
-#[derive(Debug, Clone, Deserialize)]
-struct Mode {
-    /// Mode of the directory
-    dir: u32,
-    /// Mode of the directory
-    files: HashMap<String, FileAttrs>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct FileAttrs {
-    mode: u32,
-    rename: Option<String>,
-}
+use tracing::{info, instrument, warn};
 
 /// Visits directories, maintains symlinks
 ///
@@ -151,6 +134,42 @@ impl DirItem {
             item_type: ItemType::Symlink,
         }
     }
+
+    fn copy(&self, base_dir: &Path, target_dir: &Path) -> eyre::Result<()> {
+        let rel_path = self.path.strip_prefix(&base_dir)?;
+        let to = target_dir.join(rel_path);
+
+        match self.item_type {
+            ItemType::File | ItemType::Symlink => {
+                fs::copy(&self.path, &to).wrap_err("couldn't copy file")?;
+
+                info!("coping {} -> {}", self.path.display(), to.display());
+            }
+            ItemType::Dir => {
+                let mode = self
+                    .path
+                    .metadata()
+                    .wrap_err("couldn't get dir metadata")?
+                    .mode();
+
+                DirBuilder::new()
+                    .recursive(true)
+                    .mode(mode)
+                    .create(&self.path)
+                    .wrap_err("couldn't create directory")?;
+
+                info!("created direcotry {}", to.display());
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl Display for DirItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.item_type, self.path.display())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -160,51 +179,47 @@ enum ItemType {
     Dir,
 }
 
+impl Display for ItemType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ItemType::File => write!(f, "file"),
+            ItemType::Symlink => write!(f, "symlink"),
+            ItemType::Dir => write!(f, "directory"),
+        }
+    }
+}
+
 #[instrument]
 pub fn apply(confirm: bool, dry_run: bool) -> eyre::Result<()> {
     let config = crate::config();
 
     let repo = &config.dirs.repository;
 
-    let config_dir = repo.join("config");
+    let repo_config_dir = repo.join("config");
     let xdg_config = dirs::config_dir().ok_or_eyre("coldn't find config dir")?;
 
     // sync config
-    let iter = DirIter::read(&config_dir)?;
+    let iter = DirIter::read(&repo_config_dir)?;
 
     for item in iter {
         let item = item?;
 
-        let to = xdg_config.join(item.path.strip_prefix(&config_dir)?);
-
-        match item.item_type {
-            ItemType::File | ItemType::Symlink => {
-                fs::copy(&item.path, &to)
-                    .wrap_err_with(|| format!("couldn't copy {}", item.path.display()))?;
-
-                info!("coping {} -> {}", item.path.display(), to.display());
-            }
-            ItemType::Dir => {
-                let mode = item
-                    .path
-                    .metadata()
-                    .wrap_err_with(|| format!("couldn't get dir metadata {}", item.path.display()))?
-                    .mode();
-
-                DirBuilder::new()
-                    .recursive(true)
-                    .mode(mode)
-                    .create(&item.path)
-                    .wrap_err_with(|| {
-                        format!("couldn't create directory {}", item.path.display())
-                    })?;
-
-                info!("created direcotry {}", to.display());
-            }
-        }
+        item.copy(&repo_config_dir, &xdg_config)
+            .wrap_err_with(move || format!("couldn't copy {item}"))?;
     }
 
-    // TODO: sync home
+    // sync home
+    let repo_home_dir = repo.join("home");
+    let home = dirs::home_dir().ok_or_eyre("coldn't find config dir")?;
+
+    let iter = DirIter::read(&repo_home_dir)?;
+
+    for item in iter {
+        let item = item?;
+
+        item.copy(&repo_home_dir, &home)
+            .wrap_err_with(move || format!("couldn't copy {item}"))?;
+    }
 
     Ok(())
 }
