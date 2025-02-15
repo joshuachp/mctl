@@ -91,6 +91,7 @@ impl SecretFile {
 
         let file = File::options()
             .create(true)
+            .truncate(false)
             .read(true)
             .write(true)
             .mode(0o600)
@@ -110,14 +111,10 @@ impl SecretFile {
             return Ok(None);
         }
 
-        info!("decrypting existing file");
+        info!("decrypting secret file");
 
-        let identities = config.secrets.identity()?;
-
-        let decryptor = Decryptor::new(ArmoredReader::new(&self.file))?;
-        let mut stream = decryptor.decrypt(std::iter::once(&identities as &dyn Identity))?;
-
-        io::copy(&mut stream, &mut tmp_file)?;
+        self.decrypt_to(config, &mut tmp_file)
+            .wrap_err("couldn't secret")?;
 
         self.file.rewind()?;
 
@@ -129,7 +126,10 @@ impl SecretFile {
         Ok(Some(hash))
     }
 
-    fn encrypt(self, config: &Config, mut tmp_file: File) -> eyre::Result<()> {
+    fn encrypt_to<R>(self, config: &Config, reader: &mut R) -> eyre::Result<()>
+    where
+        R: std::io::Read,
+    {
         let recipients = config.secrets.recipients()?;
         let recipients = recipients.iter().map(|r| r as &dyn Recipient);
 
@@ -139,9 +139,23 @@ impl SecretFile {
             age::armor::Format::AsciiArmor,
         )?)?;
 
-        io::copy(&mut tmp_file, &mut writer)?;
+        io::copy(reader, &mut writer)?;
 
         writer.finish().and_then(|armor| armor.finish())?;
+
+        Ok(())
+    }
+
+    fn decrypt_to<W>(&self, config: &Config, dst: &mut W) -> eyre::Result<()>
+    where
+        W: std::io::Write,
+    {
+        let identities = config.secrets.identity()?;
+
+        let decryptor = Decryptor::new(ArmoredReader::new(&self.file))?;
+        let mut stream = decryptor.decrypt(std::iter::once(&identities as &dyn Identity))?;
+
+        io::copy(&mut stream, dst).wrap_err("couldn't copy to destination")?;
 
         Ok(())
     }
@@ -208,7 +222,7 @@ pub fn edit(secret_path: &Path, allow_empty: bool) -> eyre::Result<()> {
         open_tmp_file.rewind()?;
     }
 
-    secret_file.encrypt(config, open_tmp_file)?;
+    secret_file.encrypt_to(config, &mut open_tmp_file)?;
 
     Ok(())
 }
@@ -231,6 +245,20 @@ pub fn from_stdin() -> eyre::Result<()> {
     io::copy(&mut stdin, &mut writer)?;
 
     writer.finish().and_then(|armor| armor.finish())?.flush()?;
+
+    Ok(())
+}
+
+pub fn cat(file: &Path) -> eyre::Result<()> {
+    let config = crate::config();
+
+    let mut stdout = stdout().lock();
+
+    let secret_file = SecretFile::open(file)?;
+
+    secret_file
+        .decrypt_to(config, &mut stdout)
+        .wrap_err("couldn't decrypt to stdout")?;
 
     Ok(())
 }

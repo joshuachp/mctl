@@ -73,6 +73,11 @@ pub enum Secret {
         /// Path to the secret file
         file: PathBuf,
     },
+    /// Cats a secret
+    Cat {
+        /// Path to the secret file
+        file: PathBuf,
+    },
 }
 
 impl Secret {
@@ -85,6 +90,7 @@ impl Secret {
 
                 mctl::secret::edit(file, *allow_empty)
             }
+            Secret::Cat { file } => mctl::secret::cat(file),
         }
     }
 }

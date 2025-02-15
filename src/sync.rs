@@ -59,7 +59,7 @@ impl DirIter {
             return Ok(None);
         };
 
-        return Ok(Some(item));
+        Ok(Some(item))
     }
 
     fn find_next_dir(&mut self) -> Option<eyre::Result<DirItem>> {
@@ -81,11 +81,11 @@ impl DirIter {
             }
         }
 
-        return None;
+        None
     }
 
     fn read(config: &Path) -> eyre::Result<Self> {
-        let current = fs::read_dir(&config)
+        let current = fs::read_dir(config)
             .wrap_err_with(|| format!("couldn't read config dir {}", config.display()))?;
 
         Ok(Self {
@@ -136,7 +136,7 @@ impl DirItem {
     }
 
     fn copy(&self, base_dir: &Path, target_dir: &Path) -> eyre::Result<()> {
-        let rel_path = self.path.strip_prefix(&base_dir)?;
+        let rel_path = self.path.strip_prefix(base_dir)?;
         let to = target_dir.join(rel_path);
 
         match self.item_type {
