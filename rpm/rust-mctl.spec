@@ -35,7 +35,9 @@ License:        MIT OR APACHE-2.0
 %license LICENSE.dependencies
 %license cargo-vendor.txt
 %{_bindir}/mctl
-%{_datadir}/fish/vendor_completions.d/mctl.fish
+%{bash_completions_dir}/mctl.bash
+%{fish_completions_dir}/mctl.fish
+%{zsh_completions_dir}/_mctl
 %{_mandir}/man1/mctl*
 
 %prep
@@ -54,10 +56,14 @@ License:        MIT OR APACHE-2.0
 
 %install
 %cargo_install
-mkdir -p "$RPM_BUILD_ROOT%{_datadir}/fish/vendor_completions.d"
-"$RPM_BUILD_ROOT%{_bindir}/mctl" utils completion fish > "$RPM_BUILD_ROOT%{_datadir}/fish/vendor_completions.d/mctl.fish"
-mkdir -p "$RPM_BUILD_ROOT%{_mandir}/man1"
-"$RPM_BUILD_ROOT%{_bindir}/mctl" utils manpages "$RPM_BUILD_ROOT%{_mandir}/man1"
+'${buildroot}%{_bindir}/mctl' utils completion bash > mctl.bash
+'${buildroot}%{_bindir}/mctl' utils completion fish > mctl.fish
+'${buildroot}%{_bindir}/mctl' utils completion zsh > _mctl
+install -Dpm 0644 mctl.bash -t %{buildroot}%{bash_completions_dir}
+install -Dpm 0644 mctl.fish -t %{buildroot}%{fish_completions_dir}
+install -Dpm 0644 _mctl -t %{buildroot}%{zsh_completions_dir}
+mkdir -pm 0755 '%{buildroot}%{_mandir}/man1'
+'%{buildroot}%{_bindir}/mctl' utils manpages "%{buildroot}%{_mandir}/man1"
 
 
 %if %{with check}
@@ -68,7 +74,6 @@ mkdir -p "$RPM_BUILD_ROOT%{_mandir}/man1"
 %files
 %license
 %doc
-
 
 %changelog
 %autochangelog
