@@ -1,9 +1,6 @@
-%bcond check 0
-
+%global crate mctl
 # prevent library files from being installed
 %global cargo_install_lib 0
-
-%global crate mctl
 
 Name:           rust-mctl
 Version:        0.1.0
@@ -44,8 +41,7 @@ License:        MIT OR APACHE-2.0
 %autosetup -n %{crate}-%{version} -p1 -a1
 # fix shebangs in vendor
 %cargo_prep -v vendor
-    find ./vendor -type f -executable -name '*.rs' -exec chmod -x '{}' \;
-
+find ./vendor -type f -executable -name '*.rs' -exec chmod -x '{}' \;
 
 %build
 %cargo_build
@@ -53,23 +49,19 @@ License:        MIT OR APACHE-2.0
 %{cargo_license} > LICENSE.dependencies
 %{cargo_vendor_manifest}
 
-
 %install
 %cargo_install
-'${buildroot}%{_bindir}/mctl' utils completion bash > mctl.bash
-'${buildroot}%{_bindir}/mctl' utils completion fish > mctl.fish
-'${buildroot}%{_bindir}/mctl' utils completion zsh > _mctl
+'%{buildroot}%{_bindir}/mctl' utils completion bash > mctl.bash
+'%{buildroot}%{_bindir}/mctl' utils completion fish > mctl.fish
+'%{buildroot}%{_bindir}/mctl' utils completion zsh > _mctl
 install -Dpm 0644 mctl.bash -t %{buildroot}%{bash_completions_dir}
 install -Dpm 0644 mctl.fish -t %{buildroot}%{fish_completions_dir}
 install -Dpm 0644 _mctl -t %{buildroot}%{zsh_completions_dir}
 mkdir -pm 0755 '%{buildroot}%{_mandir}/man1'
 '%{buildroot}%{_bindir}/mctl' utils manpages "%{buildroot}%{_mandir}/man1"
 
-
-%if %{with check}
 %check
 %cargo_test
-%endif
 
 %files
 %license
