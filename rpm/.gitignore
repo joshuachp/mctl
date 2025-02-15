@@ -1,1 +1,2 @@
-*.tar.gz
+*.tar.xz
+*.crate
