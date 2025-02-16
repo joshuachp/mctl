@@ -10,4 +10,4 @@ ifndef spec
 endif
 	dnf install -y rpmdevtools
 	spectool -g -R $(spec)
-	$(MAKE) -f $(dir $(spec))/Makefile srpm
+	$(MAKE) -f $(dir $(spec))/Makefile srpm outdir=$(outdir)
