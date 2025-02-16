@@ -1,7 +1,7 @@
 .PHONY: srpm
 
 srpm:
-ifndef $(outputdir)
+ifndef $(outdir)
 	$(error outputdir is undefined)
 endif
 ifndef $(spec)
@@ -9,4 +9,4 @@ ifndef $(spec)
 endif
 	dnf install -y rpmdevtools
 	spectools -g -R $(sepc)
-	$(MAKE) -f rpm/MAKEFILE -C rpm srpm
+	$(MAKE) -f rpm/Makefile -C rpm srpm
