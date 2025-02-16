@@ -34,7 +34,7 @@ RPMS := $(TOPDIR)/RPMS/$(ARCH)/rust-$(NAME)-$(VERSION)-$(RELEASE).$(ARCH).rpm \
 build: $(RPMS)
 
 srpm: $(SRPM)
-ifdef $(outdir)
+ifdef outdir
 	cp -v $(SRPM) $(outdir)
 endif
 
