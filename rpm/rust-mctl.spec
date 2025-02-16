@@ -3,14 +3,16 @@
 %global cargo_install_lib 0
 
 Name:           rust-mctl
+# x-release-please-start-version
 Version:        0.1.0
+# x-release-please-end-version
 Release:        %autorelease
 Summary:        Cli to manage machines and configurations
 
 License:        MIT OR APACHE-2.0
 URL:            https://github.com/joshuachp/mctl
-Source:         %{crates_source}
-Source:         %{name}-%{version}-vendor.tar.xz
+Source:         %{url}/release/download/v%{version}/%{crate}-%{version}.crate
+Source:         %{url}/release/download/v%{version}/%{name}-%{version}-vendor.tar.xz
 
 BuildRequires:  cargo-rpm-macros >= 26
 

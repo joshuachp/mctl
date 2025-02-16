@@ -1,0 +1,49 @@
+name: rpm-check
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "rpm/*"
+  push:
+    branches:
+      - main
+    paths:
+      - "rpm/*"
+permissions:
+  contents: read
+# Spend CI time only on latest ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+env:
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    container:
+      image: fedora:41
+    steps:
+      - name: install dependencies
+        run: |
+          dnf install -y git make rustc cargo jq fedora-packager rpmlint
+      - uses: actions/checkout@v4
+        with:
+          set-safe-directory: true
+      # BUG: fixes permission in github actions container
+      - name: set safe git directory
+        run: |
+          git config --system --add safe.directory "$PWD"
+      - name: install build dependencies
+        run: dnf builddep -y rpm/rust-mctl.spec
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
+      - name: check rpmlint
+        run: rpmlint rpm/rust-mctl.spec
+      - name: build the rpm
+        run: |
+          rpmdev-setuptree
+          make -C rpm build

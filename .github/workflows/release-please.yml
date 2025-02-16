@@ -1,0 +1,33 @@
+name: release-please
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+permissions:
+  contents: write
+  pull-requests: write
+defaults:
+  run:
+    shell: bash
+jobs:
+  release-please:
+    runs-on: ubuntu-24.04
+    outputs:
+      release: ${{ toJson(steps.release.outputs) }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+  upload-sources:
+    name: upload astartectl sources
+    needs: [release-please]
+    uses: ./.github/workflows/rpm-release.yaml
+    secrets: inherit
+    permissions:
+      contents: write
+    if: ${{ fromJSON(needs.release-please.outputs.release).release_created }}
+    with:
+      tag: ${{ fromJson(needs.release-please.outputs.release).tag_name }}

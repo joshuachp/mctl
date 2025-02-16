@@ -22,7 +22,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn read(custom_conf: Option<PathBuf>) -> eyre::Result<Self> {
+    pub fn read(custom_conf: Option<&Path>) -> eyre::Result<Self> {
         let config_dir = dirs::config_local_dir()
             .ok_or_eyre("couldn't determin configuration directory")?
             .join(env!("CARGO_PKG_NAME"));

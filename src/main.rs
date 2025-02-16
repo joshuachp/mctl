@@ -1,5 +1,5 @@
 use clap::Parser;
-use cli::Cli;
+use cli::{Cli, Command};
 use mctl::{config::Config, CONFIG};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -19,21 +19,24 @@ fn main() -> eyre::Result<()> {
         )
         .try_init()?;
 
-    let config = Config::read(cli.config)?;
+    // Don't require a config for utils
+    if let Command::Utils { command } = cli.command {
+        return command.run();
+    }
+
+    let config = Config::read(cli.config.as_deref())?;
 
     CONFIG.get_or_init(|| config);
 
     match cli.command {
-        cli::Command::Sync { command } => {
+        Command::Sync { command } => {
             command.run()?;
         }
-        cli::Command::Status { command: _ } => todo!(),
-        cli::Command::Secret { command } => {
+        Command::Status { command: _ } => todo!(),
+        Command::Secret { command } => {
             command.run()?;
         }
-        cli::Command::Utils { command } => {
-            command.run()?;
-        }
+        Command::Utils { .. } => {}
     }
 
     Ok(())
