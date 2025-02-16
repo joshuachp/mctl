@@ -18,6 +18,9 @@ concurrency:
 defaults:
   run:
     shell: bash
+env:
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -36,6 +39,8 @@ jobs:
           git config --system --add safe.directory "$PWD"
       - name: install build dependencies
         run: dnf builddep -y rpm/rust-mctl.spec
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
       - name: check rpmlint
         run: rpmlint rpm/rust-mctl.spec
       - name: build the rpm
