@@ -3,7 +3,9 @@
 %global cargo_install_lib 0
 
 Name:           rust-mctl
+# x-release-please-start-version
 Version:        0.1.0
+# x-release-please-end-version
 Release:        %autorelease
 Summary:        Cli to manage machines and configurations
 

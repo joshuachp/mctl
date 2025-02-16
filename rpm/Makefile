@@ -48,7 +48,7 @@ $(SRPM): $(SPECFILE) $(CRATE) $(VENDOR)
 
 $(CRATE): $(SRCS)
 	cargo package --locked
-	cp -v $$CARGO_TARGET_DIR/package/mctl-0.1.0.crate $(CRATE)
+	cp -v $(CARGO_TARGET_DIR)/package/$(NAME)-$(VERSION).crate $(CRATE)
 
 $(VENDOR): ../Cargo.toml ../Cargo.lock
 	cargo vendor --locked $(TMPDIR)/vendor

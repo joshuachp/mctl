@@ -1,0 +1,70 @@
+name: rpm-release
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        description: Tag to push the sources to
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        type: string
+        description: Tag to push the sources to
+        required: true
+permissions:
+  contents: write
+# Spend CI time only on latest ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+jobs:
+  create-sources:
+    runs-on: ubuntu-24.04
+    container:
+      image: fedora:41
+    steps:
+      - name: install dependencies
+        run: |
+          dnf install -y git make rustc cargo jq fedora-packager rpmlint
+      - uses: actions/checkout@v4
+      # BUG: fixes permission in github actions container
+      - name: set safe git directory
+        run: |
+          git config --system --add safe.directory "$PWD"
+      - name: install build dependencies
+        run: dnf builddep -y rpm/rust-mctl.spec
+      - name: build the rpm
+        run: |
+          make -C rpm sources SOURCEDIR=./
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sources
+          if-no-files-found: error
+          path: |
+            rpm/mctl-*.crate
+            rpm/rust-mctl-*-vendor.tar.xz
+  upload-to-release:
+    runs-on: ubuntu-24.04
+    needs: create-sources
+    steps:
+      - name: download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sources
+      - name: upload to relase
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          WEBHOOK: ${{ secrets.COPR_WEBHOOK }}
+        run: |
+          find -type f
+          gh release upload -R "$REPOSITORY" "$TAG" \
+            mctl-*.crate \
+            rust-mctl-*-vendor.tar.xz
+          curl -X POST "$WEBHOOK/rust-mctl"
