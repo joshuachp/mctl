@@ -1,10 +1,11 @@
-.PHONY: srpm
+SHELL=/usr/bin/env bash -xeuEo pipefail
 
+.PHONY: srpm
 srpm:
-ifndef $(outdir)
-	$(error outputdir is undefined)
+ifndef outdir
+	$(error outdir is undefined)
 endif
-ifndef $(spec)
+ifndef spec
 	$(error spec is undefined)
 endif
 	dnf install -y rpmdevtools
