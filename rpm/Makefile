@@ -34,8 +34,8 @@ RPMS := $(TOPDIR)/RPMS/$(ARCH)/rust-$(NAME)-$(VERSION)-$(RELEASE).$(ARCH).rpm \
 build: $(RPMS)
 
 srpm: $(SRPM)
-ifdef $(outputdir)
-	cp -v $(SRPM) $(outputdir)
+ifdef $(outdir)
+	cp -v $(SRPM) $(outdir)
 endif
 
 sources: $(CRATE) $(VENDOR)
