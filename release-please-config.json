@@ -5,6 +5,7 @@
     ".": {
       "package-name": "mctl",
       "release-as": "0.1.0",
+      "include-component-in-tag": false,
       "extra-files": [
         "rpm/rust-mctl.spec"
       ]
