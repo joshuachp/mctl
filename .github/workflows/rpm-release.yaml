@@ -44,7 +44,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.7
       - name: build the rpm
         run: |
-          make -C rpm sources SOURCEDIR=./
+          make -C rpm sources SOURCE_DIR=./
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
