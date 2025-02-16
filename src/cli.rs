@@ -69,7 +69,9 @@ pub enum Secret {
         /// Allow a secret to be empty.
         #[arg(default_value = "false", long)]
         allow_empty: bool,
-
+        /// Read the secret from stdin
+        #[arg(default_value = "false", long)]
+        stdin: bool,
         /// Path to the secret file
         file: PathBuf,
     },
@@ -83,9 +85,13 @@ pub enum Secret {
 impl Secret {
     pub(crate) fn run(&self) -> eyre::Result<()> {
         match self {
-            Secret::Edit { file, allow_empty } => {
-                if file.as_os_str() == "-" {
-                    return mctl::secret::from_stdin();
+            Secret::Edit {
+                stdin,
+                allow_empty,
+                file,
+            } => {
+                if *stdin {
+                    return mctl::secret::from_stdin(*allow_empty, file);
                 }
 
                 mctl::secret::edit(file, *allow_empty)
