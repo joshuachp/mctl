@@ -1,9 +1,13 @@
 {
   "$schema": "https://github.com/googleapis/release-please/raw/refs/heads/main/schemas/config.json",
-  "package-name": "mctl",
   "release-type": "rust",
-  "release-as": "0.1.0",
-  "extra-files": [
-    "rpm/rust-mctl.spec"
-  ]
+  "packages": {
+    ".": {
+      "package-name": "mctl",
+      "release-as": "0.1.0",
+      "extra-files": [
+        "rpm/rust-mctl.spec"
+      ]
+    }
+  }
 }
