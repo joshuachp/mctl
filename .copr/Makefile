@@ -9,5 +9,5 @@ ifndef spec
 	$(error spec is undefined)
 endif
 	dnf install -y rpmdevtools
-	spectool -g -R $(sepc)
+	spectool -g -R $(spec)
 	$(MAKE) -f rpm/Makefile -C rpm srpm
