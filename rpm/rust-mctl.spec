@@ -11,8 +11,8 @@ Summary:        Cli to manage machines and configurations
 
 License:        MIT OR APACHE-2.0
 URL:            https://github.com/joshuachp/mctl
-Source:         %{url}/release/download/v%{version}/%{crate}-%{version}.crate
-Source:         %{url}/release/download/v%{version}/%{name}-%{version}-vendor.tar.xz
+Source:         %{url}/releases/download/v%{version}/%{crate}-%{version}.crate
+Source:         %{url}/releases/download/v%{version}/%{name}-%{version}-vendor.tar.xz
 
 BuildRequires:  cargo-rpm-macros >= 26
 
