@@ -40,8 +40,6 @@ impl TempFile {
     }
 
     fn fom_secret(secret_path: &Path, cache_dir: &Path) -> Self {
-        let mut tmp_name = OsString::from(random_alpha_num());
-
         let ext = secret_path
             .file_name()
             .and_then(OsStr::to_str)
@@ -53,14 +51,7 @@ impl TempFile {
             .map(|(_file, ext)| ext)
             .filter(|ext| !ext.is_empty());
 
-        if let Some(ext) = ext {
-            tmp_name.push(".");
-            tmp_name.push(ext);
-        }
-
-        let tpm_path = cache_dir.join(tmp_name);
-
-        Self { path: tpm_path }
+        Self::new(cache_dir, ext)
     }
 
     fn open(&self) -> eyre::Result<File> {
@@ -69,6 +60,19 @@ impl TempFile {
             .mode(0o600)
             .open(&self.path)
             .wrap_err("couldn't open temporary file")
+    }
+
+    fn new(cache_dir: &Path, ext: Option<&str>) -> Self {
+        let mut tmp_name = OsString::from(random_alpha_num());
+
+        if let Some(ext) = ext {
+            tmp_name.push(".");
+            tmp_name.push(ext);
+        }
+
+        let tpm_path = cache_dir.join(tmp_name);
+
+        Self { path: tpm_path }
     }
 }
 
@@ -86,12 +90,12 @@ struct SecretFile {
 }
 
 impl SecretFile {
-    fn open(path: &Path) -> eyre::Result<Self> {
+    fn open(path: &Path, truncate: bool) -> eyre::Result<Self> {
         debug!(path = %path.display(), "opening secret file");
 
         let file = File::options()
             .create(true)
-            .truncate(false)
+            .truncate(truncate)
             .read(true)
             .write(true)
             .mode(0o600)
@@ -179,7 +183,7 @@ pub fn edit(secret_path: &Path, allow_empty: bool) -> eyre::Result<()> {
     let config = crate::config();
     let cache_dir = config.dirs.cache()?;
 
-    let mut secret_file = SecretFile::open(secret_path)?;
+    let mut secret_file = SecretFile::open(secret_path, false)?;
     let tmp_file = TempFile::fom_secret(secret_path, cache_dir);
 
     let open_tmp_file = tmp_file.create()?;
@@ -227,24 +231,42 @@ pub fn edit(secret_path: &Path, allow_empty: bool) -> eyre::Result<()> {
     Ok(())
 }
 
-pub fn from_stdin() -> eyre::Result<()> {
+pub fn from_stdin(allow_empty: bool, file: &Path) -> eyre::Result<()> {
     let config = crate::config();
 
     let mut stdin = stdin().lock();
-    let stdout = stdout().lock();
+    let tpm = TempFile::new(config.dirs.cache()?, None);
+    let tpm_file = tpm.open()?;
 
     let recipients = config.secrets.recipients()?;
     let recipients = recipients.iter().map(|r| r as &dyn Recipient);
 
     let encriptor = age::Encryptor::with_recipients(recipients)?;
     let mut writer = encriptor.wrap_output(ArmoredWriter::wrap_output(
-        stdout,
+        &tpm_file,
         age::armor::Format::AsciiArmor,
     )?)?;
 
-    io::copy(&mut stdin, &mut writer)?;
+    let size = io::copy(&mut stdin, &mut writer)?;
 
     writer.finish().and_then(|armor| armor.finish())?.flush()?;
+
+    drop(tpm_file);
+
+    if size == 0 && !allow_empty {
+        return Err(eyre!("stdin is empty, not writting secret").note(format!(
+            "you can pass {} to create it anyway",
+            "--allow-empty".blue()
+        )));
+    }
+
+    let mut tpm_file = tpm.open()?;
+
+    let mut secret = SecretFile::open(file, true)?;
+
+    io::copy(&mut tpm_file, &mut secret.file)?;
+
+    info!("secret created");
 
     Ok(())
 }
@@ -254,7 +276,7 @@ pub fn cat(file: &Path) -> eyre::Result<()> {
 
     let mut stdout = stdout().lock();
 
-    let secret_file = SecretFile::open(file)?;
+    let secret_file = SecretFile::open(file, false)?;
 
     secret_file
         .decrypt_to(config, &mut stdout)
