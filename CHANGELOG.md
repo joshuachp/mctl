@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/joshuachp/mctl/compare/v0.1.0...v0.1.1) (2025-02-17)
+
+
+### Bug Fixes
+
+* edit secret from stdin to file ([b522e85](https://github.com/joshuachp/mctl/commit/b522e85f056082020fdcb26618bb4515ec81882b))
+
 ## 0.1.0 (2025-02-16)
 
 
