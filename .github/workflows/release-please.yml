@@ -22,7 +22,7 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
   upload-sources:
-    name: upload astartectl sources
+    name: upload sources
     needs: [release-please]
     uses: ./.github/workflows/rpm-release.yaml
     secrets: inherit
