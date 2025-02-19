@@ -8,6 +8,14 @@ use std::{
 use eyre::{OptionExt, WrapErr};
 use tracing::{info, instrument, warn};
 
+mod services;
+
+trait SyncTarget: Sized {
+    async fn out_of_sync(&self) -> eyre::Result<bool>;
+
+    fn sync(self) -> eyre::Result<()>;
+}
+
 /// Visits directories, maintains symlinks
 ///
 /// ```txt
