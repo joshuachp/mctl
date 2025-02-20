@@ -1,5 +1,5 @@
 use std::{
-    io::{stdout, Write},
+    io::{Write, stdout},
     path::PathBuf,
 };
 
@@ -137,7 +137,7 @@ pub enum Shell {
 
 impl Shell {
     fn generate(&self) -> eyre::Result<()> {
-        let gen = match self {
+        let shell = match self {
             Shell::Bash => clap_complete::Shell::Bash,
             Shell::Zsh => clap_complete::Shell::Zsh,
             Shell::Fish => clap_complete::Shell::Fish,
@@ -145,7 +145,7 @@ impl Shell {
 
         let mut stdout = stdout().lock();
         clap_complete::generate(
-            gen,
+            shell,
             &mut Cli::command(),
             env!("CARGO_BIN_NAME"),
             &mut stdout,
