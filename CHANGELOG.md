@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/joshuachp/mctl/compare/v0.1.1...v0.1.2) (2025-02-24)
+
+
+### Bug Fixes
+
+* **secret:** create tmp file in from_stdin fn ([bddcc28](https://github.com/joshuachp/mctl/commit/bddcc28ca6a2d3ffe7f974c69e64f7c9b9bf5276))
+
 ## [0.1.1](https://github.com/joshuachp/mctl/compare/v0.1.0...v0.1.1) (2025-02-17)
 
 
