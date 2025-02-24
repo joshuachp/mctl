@@ -1,7 +1,7 @@
 use std::{
     ffi::{OsStr, OsString},
     fs::{self, File},
-    io::{self, stdin, stdout, Seek, Write},
+    io::{self, Seek, Write, stdin, stdout},
     ops::{Deref, DerefMut},
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
@@ -9,12 +9,12 @@ use std::{
 };
 
 use age::{
-    armor::{ArmoredReader, ArmoredWriter},
     Decryptor, Identity, Recipient,
+    armor::{ArmoredReader, ArmoredWriter},
 };
 use blake3::Hash;
-use color_eyre::{owo_colors::OwoColorize, Section};
-use eyre::{bail, eyre, Context};
+use color_eyre::{Section, owo_colors::OwoColorize};
+use eyre::{Context, bail, eyre};
 use tracing::{debug, error, info};
 
 use crate::{config::Config, util::random_alpha_num};
@@ -236,7 +236,7 @@ pub fn from_stdin(allow_empty: bool, file: &Path) -> eyre::Result<()> {
 
     let mut stdin = stdin().lock();
     let tpm = TempFile::new(config.dirs.cache()?, None);
-    let tpm_file = tpm.open()?;
+    let tpm_file = tpm.create()?;
 
     let recipients = config.secrets.recipients()?;
     let recipients = recipients.iter().map(|r| r as &dyn Recipient);
