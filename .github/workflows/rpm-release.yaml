@@ -41,7 +41,7 @@ jobs:
       - name: install build dependencies
         run: dnf builddep -y rpm/rust-mctl.spec
       - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.8
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: build the rpm
         run: |
           make -C rpm sources SOURCE_DIR=./
