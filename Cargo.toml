@@ -11,16 +11,20 @@ description = "Cli to manage machines and configurations"
 
 [dependencies]
 age = { version = "0.11.1", features = ["armor"] }
-blake3 = { version = "1.5.5", features = ["zeroize"] }
-clap = { version = "4.5.28", features = ["derive"] }
-clap_complete = "4.5.44"
+blake3 = { version = "1.8.2", features = ["zeroize"] }
+clap = { version = "4.5.39", features = ["derive"] }
+clap_complete = "4.5.51"
 clap_mangen = "0.2.26"
-color-eyre = "0.6.3"
-config = { version = "0.15.7", features = ["toml"], default-features = false }
+color-eyre = "0.6.4"
+config = { version = "0.15.11", features = ["toml"], default-features = false }
 dirs = "6.0.0"
 eyre = "0.6.12"
-rand = "0.9.0"
-serde = { version = "1.0.217", features = ["derive"] }
+rand = "0.9.1"
+serde = { version = "1.0.219", features = ["derive"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 zeroize = "1.8.1"
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
+tempfile = "3.20.0"
