@@ -1,7 +1,7 @@
 use std::{
     ffi::{OsStr, OsString},
     fs::{self, File},
-    io::{self, Seek, Write, stdin, stdout},
+    io::{self, Read, Seek, Write, stdin, stdout},
     ops::{Deref, DerefMut},
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
@@ -234,7 +234,31 @@ pub fn edit(secret_path: &Path, allow_empty: bool) -> eyre::Result<()> {
 pub fn from_stdin(allow_empty: bool, file: &Path) -> eyre::Result<()> {
     let config = crate::config();
 
-    let mut stdin = stdin().lock();
+    let stdin = stdin().lock();
+
+    encrypt_from_reader(stdin, &config, allow_empty, file)
+}
+
+pub fn cat(file: &Path) -> eyre::Result<()> {
+    let config = crate::config();
+
+    let mut stdout = stdout().lock();
+
+    let secret_file = SecretFile::open(file, false)?;
+
+    secret_file
+        .decrypt_to(config, &mut stdout)
+        .wrap_err("couldn't decrypt to stdout")?;
+
+    Ok(())
+}
+
+fn encrypt_from_reader<R: Read>(
+    mut reader: R,
+    config: &Config,
+    allow_empty: bool,
+    file: &Path,
+) -> Result<(), eyre::Error> {
     let tpm = TempFile::new(config.dirs.cache()?, None);
     let tpm_file = tpm.create()?;
 
@@ -247,7 +271,7 @@ pub fn from_stdin(allow_empty: bool, file: &Path) -> eyre::Result<()> {
         age::armor::Format::AsciiArmor,
     )?)?;
 
-    let size = io::copy(&mut stdin, &mut writer)?;
+    let size = io::copy(&mut reader, &mut writer)?;
 
     writer.finish().and_then(|armor| armor.finish())?.flush()?;
 
@@ -271,16 +295,133 @@ pub fn from_stdin(allow_empty: bool, file: &Path) -> eyre::Result<()> {
     Ok(())
 }
 
-pub fn cat(file: &Path) -> eyre::Result<()> {
-    let config = crate::config();
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
 
-    let mut stdout = stdout().lock();
+    use tempfile::TempDir;
 
-    let secret_file = SecretFile::open(file, false)?;
+    use super::*;
 
-    secret_file
-        .decrypt_to(config, &mut stdout)
-        .wrap_err("couldn't decrypt to stdout")?;
+    #[test]
+    fn encrypt_and_decrypt() {
+        let tmp = TempDir::new().unwrap();
 
-    Ok(())
+        let file = tmp.path().join("secret.txt.pem");
+
+        let plaintext = "Hello World!";
+        let reader = Cursor::new(plaintext);
+
+        // TODO: pass custom config
+        let config = Config::read(None).unwrap();
+
+        encrypt_from_reader(reader, &config, false, &file).unwrap();
+
+        let mut out = Cursor::new(Vec::new());
+
+        SecretFile::open(&file, false)
+            .unwrap()
+            .decrypt_to(&config, &mut out)
+            .unwrap();
+
+        let inner = out.into_inner();
+        let out = str::from_utf8(&inner).unwrap();
+
+        assert_eq!(out, plaintext);
+    }
+
+    #[test]
+    fn encrypt_and_decrypt_smaller() {
+        let tmp = TempDir::new().unwrap();
+
+        let file = tmp.path().join("secret.txt.pem");
+
+        // TODO: pass custom config
+        let config = Config::read(None).unwrap();
+
+        let plaintext = "Hello World!";
+        let reader = Cursor::new(plaintext);
+
+        encrypt_from_reader(reader, &config, false, &file).unwrap();
+
+        let plaintext = "Hello";
+        let reader = Cursor::new(plaintext);
+
+        encrypt_from_reader(reader, &config, false, &file).unwrap();
+
+        let mut out = Cursor::new(Vec::new());
+
+        SecretFile::open(&file, false)
+            .unwrap()
+            .decrypt_to(&config, &mut out)
+            .unwrap();
+
+        let inner = out.into_inner();
+        let out = str::from_utf8(&inner).unwrap();
+
+        assert_eq!(out, plaintext);
+    }
+
+    #[test]
+    fn encrypt_and_decrypt_bigger() {
+        let tmp = TempDir::new().unwrap();
+
+        let file = tmp.path().join("secret.txt.pem");
+
+        // TODO: pass custom config
+        let config = Config::read(None).unwrap();
+
+        let plaintext = "Hello";
+        let reader = Cursor::new(plaintext);
+
+        encrypt_from_reader(reader, &config, false, &file).unwrap();
+
+        let plaintext = "Hello world";
+        let reader = Cursor::new(plaintext);
+
+        encrypt_from_reader(reader, &config, false, &file).unwrap();
+
+        let mut out = Cursor::new(Vec::new());
+
+        SecretFile::open(&file, false)
+            .unwrap()
+            .decrypt_to(&config, &mut out)
+            .unwrap();
+
+        let inner = out.into_inner();
+        let out = str::from_utf8(&inner).unwrap();
+
+        assert_eq!(out, plaintext);
+    }
+
+    #[test]
+    fn encrypt_and_decrypt_smaller_big() {
+        let tmp = TempDir::new().unwrap();
+
+        let file = tmp.path().join("secret.txt.pem");
+
+        // TODO: pass custom config
+        let config = Config::read(None).unwrap();
+
+        let plaintext = vec![b'a'; 2048];
+        let reader = Cursor::new(plaintext);
+
+        encrypt_from_reader(reader, &config, false, &file).unwrap();
+
+        let plaintext = vec![b'b'; 10];
+        let reader = Cursor::new(plaintext.clone());
+
+        encrypt_from_reader(reader, &config, false, &file).unwrap();
+
+        let mut out = Cursor::new(Vec::new());
+
+        SecretFile::open(&file, false)
+            .unwrap()
+            .decrypt_to(&config, &mut out)
+            .unwrap();
+
+        let inner = out.into_inner();
+
+        assert_eq!(inner, plaintext);
+    }
 }
