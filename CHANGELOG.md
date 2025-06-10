@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/joshuachp/mctl/compare/v0.1.2...v0.2.0) (2025-06-10)
+
+
+### Features
+
+* **secret:** rotate a secret ([ec40c14](https://github.com/joshuachp/mctl/commit/ec40c1499842e5a01c6c6ceae7b9d7368226bae7))
+* **secret:** rotate a secret ([cea814d](https://github.com/joshuachp/mctl/commit/cea814d937ef9e96c2a7610d005387508a305a9b))
+
 ## [0.1.2](https://github.com/joshuachp/mctl/compare/v0.1.1...v0.1.2) (2025-02-24)
 
 
