@@ -1,4 +1,4 @@
-use rand::{distr::Alphanumeric, Rng};
+use rand::{Rng, distr::Alphanumeric};
 
 pub(crate) fn random_alpha_num() -> String {
     rand::rng()

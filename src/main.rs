@@ -1,8 +1,8 @@
 use clap::Parser;
 use cli::{Cli, Command};
-use mctl::{config::Config, CONFIG};
+use mctl::{CONFIG, config::Config};
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 mod cli;
 
@@ -29,10 +29,6 @@ fn main() -> eyre::Result<()> {
     CONFIG.get_or_init(|| config);
 
     match cli.command {
-        Command::Sync { command } => {
-            command.run()?;
-        }
-        Command::Status { command: _ } => todo!(),
         Command::Secret { command } => {
             command.run()?;
         }

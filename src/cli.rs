@@ -18,16 +18,6 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    /// Updates the files in the home directory.
-    Sync {
-        #[command(subcommand)]
-        command: SyncCmd,
-    },
-    /// Checks the status of the repo with the home
-    Status {
-        #[command(subcommand)]
-        command: Status,
-    },
     /// Manages the secrets
     Secret {
         #[command(subcommand)]
@@ -39,28 +29,6 @@ pub enum Command {
         command: Utils,
     },
 }
-#[derive(Debug, Subcommand)]
-pub enum SyncCmd {
-    /// Syncs all the files in the repo to the home directory.
-    Apply {
-        /// Automatically sync all the files.
-        #[arg(long, short = 'y', default_value = "false")]
-        confirm: bool,
-        /// Automatically sync all the files.
-        #[arg(long, default_value = "false")]
-        dry_run: bool,
-    },
-}
-impl SyncCmd {
-    pub(crate) fn run(&self) -> eyre::Result<()> {
-        match self {
-            SyncCmd::Apply { confirm, dry_run } => mctl::sync::apply(*confirm, *dry_run),
-        }
-    }
-}
-
-#[derive(Debug, Subcommand)]
-pub enum Status {}
 
 #[derive(Debug, Subcommand)]
 pub enum Secret {
@@ -77,6 +45,10 @@ pub enum Secret {
     },
     /// Cats a secret
     Cat {
+        /// Path to the secret file
+        file: PathBuf,
+    },
+    Rotate {
         /// Path to the secret file
         file: PathBuf,
     },
@@ -97,6 +69,7 @@ impl Secret {
                 mctl::secret::edit(file, *allow_empty)
             }
             Secret::Cat { file } => mctl::secret::cat(file),
+            Secret::Rotate { file } => mctl::secret::rotate(file),
         }
     }
 }

@@ -1,9 +1,8 @@
 use std::{
     ffi::{OsStr, OsString},
     fs::{self, File},
-    io::{self, Read, Seek, Write, stdin, stdout},
-    ops::{Deref, DerefMut},
-    os::unix::fs::{MetadataExt, OpenOptionsExt},
+    io::{self, stdin, stdout},
+    os::unix::fs::OpenOptionsExt,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -19,8 +18,46 @@ use tracing::{debug, error, info};
 
 use crate::{config::Config, util::random_alpha_num};
 
+fn encrypt<R, W>(config: &Config, reader: &mut R, writer: &mut W) -> eyre::Result<()>
+where
+    R: std::io::Read,
+    W: std::io::Write,
+{
+    let recipients = config.secrets.recipients()?;
+    let recipients = recipients.iter().map(|r| r as &dyn Recipient);
+
+    let encriptor = age::Encryptor::with_recipients(recipients)?;
+    let mut writer = encriptor.wrap_output(ArmoredWriter::wrap_output(
+        writer,
+        age::armor::Format::AsciiArmor,
+    )?)?;
+
+    io::copy(reader, &mut writer)?;
+
+    writer.finish().and_then(|armor| armor.finish())?;
+
+    Ok(())
+}
+
+fn decrypt<R, W>(config: &Config, reader: &mut R, dst: &mut W) -> eyre::Result<()>
+where
+    R: std::io::Read,
+    W: std::io::Write,
+{
+    let identities = config.secrets.identity()?;
+
+    let decryptor = Decryptor::new(ArmoredReader::new(reader))?;
+    let mut stream = decryptor.decrypt(std::iter::once(&identities as &dyn Identity))?;
+
+    io::copy(&mut stream, dst).wrap_err("couldn't copy to destination")?;
+
+    Ok(())
+}
+
 struct TempFile {
     path: PathBuf,
+    // Hash before an edit
+    hash: Option<Hash>,
 }
 
 impl TempFile {
@@ -72,7 +109,22 @@ impl TempFile {
 
         let tpm_path = cache_dir.join(tmp_name);
 
-        Self { path: tpm_path }
+        Self {
+            path: tpm_path,
+            hash: None,
+        }
+    }
+
+    fn hash(&self) -> Option<Hash> {
+        if !self.path.exists() {
+            return None;
+        }
+
+        let file = self.open().ok()?;
+
+        let hash = blake3::Hasher::new().update_reader(&file).ok()?.finalize();
+
+        Some(hash)
     }
 }
 
@@ -84,113 +136,122 @@ impl Drop for TempFile {
     }
 }
 
-struct SecretFile {
-    is_empty: bool,
-    file: File,
+struct SecretFile<'a> {
+    path: &'a Path,
+    allow_empty: bool,
 }
 
-impl SecretFile {
-    fn open(path: &Path, truncate: bool) -> eyre::Result<Self> {
-        debug!(path = %path.display(), "opening secret file");
+impl<'a> SecretFile<'a> {
+    fn new(path: &'a Path, allow_empty: bool) -> Self {
+        Self { path, allow_empty }
+    }
 
-        let file = File::options()
+    fn open(&self, truncate: bool) -> eyre::Result<File> {
+        debug!(path = %self.path.display(), "opening secret file");
+
+        File::options()
             .create(true)
             .truncate(truncate)
             .read(true)
             .write(true)
             .mode(0o600)
-            .open(path)
-            .wrap_err("couldn't open secret file")?;
-
-        Ok(Self {
-            is_empty: file.metadata()?.size() == 0,
-            file,
-        })
-    }
-
-    fn maybe_decrypt(&mut self, config: &Config, mut tmp_file: File) -> eyre::Result<Option<Hash>> {
-        if self.is_empty {
-            debug!("secret file is empty");
-
-            return Ok(None);
-        }
-
-        info!("decrypting secret file");
-
-        self.decrypt_to(config, &mut tmp_file)
-            .wrap_err("couldn't secret")?;
-
-        self.file.rewind()?;
-
-        tmp_file.sync_all()?;
-        tmp_file.rewind()?;
-
-        let hash = blake3::Hasher::new().update_reader(&tmp_file)?.finalize();
-
-        Ok(Some(hash))
-    }
-
-    fn encrypt_to<R>(self, config: &Config, reader: &mut R) -> eyre::Result<()>
-    where
-        R: std::io::Read,
-    {
-        let recipients = config.secrets.recipients()?;
-        let recipients = recipients.iter().map(|r| r as &dyn Recipient);
-
-        let encriptor = age::Encryptor::with_recipients(recipients)?;
-        let mut writer = encriptor.wrap_output(ArmoredWriter::wrap_output(
-            &self.file,
-            age::armor::Format::AsciiArmor,
-        )?)?;
-
-        io::copy(reader, &mut writer)?;
-
-        writer.finish().and_then(|armor| armor.finish())?;
-
-        Ok(())
+            .open(self.path)
+            .wrap_err("couldn't open secret file")
     }
 
     fn decrypt_to<W>(&self, config: &Config, dst: &mut W) -> eyre::Result<()>
     where
         W: std::io::Write,
     {
-        let identities = config.secrets.identity()?;
+        let mut file = self.open(false)?;
 
-        let decryptor = Decryptor::new(ArmoredReader::new(&self.file))?;
-        let mut stream = decryptor.decrypt(std::iter::once(&identities as &dyn Identity))?;
+        decrypt(config, &mut file, dst)
+    }
 
-        io::copy(&mut stream, dst).wrap_err("couldn't copy to destination")?;
+    fn encrypt_from<R>(&self, config: &Config, reader: &mut R) -> eyre::Result<()>
+    where
+        R: std::io::Read,
+    {
+        let mut file = self.open(true)?;
+
+        encrypt(config, reader, &mut file)?;
+
+        file.sync_all()?;
+
+        Ok(())
+    }
+
+    /// Decrypts the secret to a temp file, returning the hash if the secret already exists
+    fn decrypt_to_tmp(&self, config: &Config) -> eyre::Result<TempFile> {
+        let mut tmp = TempFile::fom_secret(self.path, config.dirs.cache()?);
+
+        if !self.path.try_exists()? {
+            info!("new secret file");
+
+            return Ok(tmp);
+        }
+
+        info!("decrypting secret file");
+
+        let mut tmp_file = tmp.create()?;
+
+        self.decrypt_to(config, &mut tmp_file)
+            .wrap_err("couldn't decrypt to temp file")?;
+
+        tmp_file.sync_all()?;
+
+        // Update the hash
+        tmp.hash = tmp.hash();
+
+        Ok(tmp)
+    }
+
+    /// Encrypts the content of a temp file, only if the hash differs.
+    fn encrypt_from_tmp(&self, config: &Config, tmp: TempFile) -> eyre::Result<()> {
+        if tmp.path.metadata()?.len() == 0 && !self.allow_empty {
+            return Err(eyre!("secrets cannot be empty")).note(format!(
+                "you can pass the {} option to create an empty secret",
+                "--allow-empty".blue()
+            ));
+        }
+
+        if let Some(hash) = tmp.hash {
+            let new = tmp.hash();
+
+            if new.is_some_and(|new| hash == new) {
+                info!("the file is still the same");
+
+                return Ok(());
+            }
+        }
+
+        info!("encrypt the secret file");
+
+        let mut tmp_file = tmp.open()?;
+
+        self.encrypt_from(config, &mut tmp_file)
+            .wrap_err("couldn't decrypt to temp file")?;
+
+        Ok(())
+    }
+
+    fn rotate(&self, config: &Config) -> eyre::Result<()> {
+        let tmp = self.decrypt_to_tmp(&config)?;
+        self.encrypt_from_tmp(&config, tmp)?;
 
         Ok(())
     }
 }
 
-impl Deref for SecretFile {
-    type Target = File;
-
-    fn deref(&self) -> &Self::Target {
-        &self.file
-    }
-}
-
-impl DerefMut for SecretFile {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.file
-    }
-}
-
 pub fn edit(secret_path: &Path, allow_empty: bool) -> eyre::Result<()> {
     let config = crate::config();
-    let cache_dir = config.dirs.cache()?;
 
-    let mut secret_file = SecretFile::open(secret_path, false)?;
-    let tmp_file = TempFile::fom_secret(secret_path, cache_dir);
+    let secret_file = SecretFile::new(secret_path, allow_empty);
 
-    let open_tmp_file = tmp_file.create()?;
-    let hash = secret_file.maybe_decrypt(config, open_tmp_file)?;
+    let tmp = secret_file.decrypt_to_tmp(config)?;
 
     let out = Command::new(&config.editor)
-        .arg(&tmp_file.path)
+        .arg(&tmp.path)
         .spawn()?
         .wait_with_output()?;
 
@@ -203,30 +264,7 @@ pub fn edit(secret_path: &Path, allow_empty: bool) -> eyre::Result<()> {
         bail!("editor exited with an error");
     }
 
-    let mut open_tmp_file = tmp_file.open()?;
-
-    if open_tmp_file.metadata()?.len() == 0 && !allow_empty {
-        return Err(eyre!("secrets cannot be empty")).note(format!(
-            "you can pass the {} option to create an empty secret",
-            "--allow-empty".blue()
-        ));
-    }
-
-    if let Some(hash) = hash {
-        let new = blake3::Hasher::new()
-            .update_reader(&open_tmp_file)?
-            .finalize();
-
-        if hash == new {
-            info!("the file is still the same");
-
-            return Ok(());
-        }
-
-        open_tmp_file.rewind()?;
-    }
-
-    secret_file.encrypt_to(config, &mut open_tmp_file)?;
+    secret_file.encrypt_from_tmp(config, tmp)?;
 
     Ok(())
 }
@@ -234,9 +272,17 @@ pub fn edit(secret_path: &Path, allow_empty: bool) -> eyre::Result<()> {
 pub fn from_stdin(allow_empty: bool, file: &Path) -> eyre::Result<()> {
     let config = crate::config();
 
-    let stdin = stdin().lock();
+    let mut stdin = stdin().lock();
 
-    encrypt_from_reader(stdin, &config, allow_empty, file)
+    let tmp = TempFile::new(config.dirs.cache()?, None);
+
+    SecretFile::new(&tmp.path, allow_empty).encrypt_from(config, &mut stdin)?;
+
+    fs::copy(&tmp.path, file).wrap_err("coudl't copy temp file")?;
+
+    info!("secret encrypted");
+
+    Ok(())
 }
 
 pub fn cat(file: &Path) -> eyre::Result<()> {
@@ -244,53 +290,19 @@ pub fn cat(file: &Path) -> eyre::Result<()> {
 
     let mut stdout = stdout().lock();
 
-    let secret_file = SecretFile::open(file, false)?;
-
-    secret_file
+    SecretFile::new(file, true)
         .decrypt_to(config, &mut stdout)
         .wrap_err("couldn't decrypt to stdout")?;
 
     Ok(())
 }
 
-fn encrypt_from_reader<R: Read>(
-    mut reader: R,
-    config: &Config,
-    allow_empty: bool,
-    file: &Path,
-) -> Result<(), eyre::Error> {
-    let tpm = TempFile::new(config.dirs.cache()?, None);
-    let tpm_file = tpm.create()?;
+pub fn rotate(file: &Path) -> eyre::Result<()> {
+    let config = crate::config();
 
-    let recipients = config.secrets.recipients()?;
-    let recipients = recipients.iter().map(|r| r as &dyn Recipient);
+    SecretFile::new(file, true).rotate(config)?;
 
-    let encriptor = age::Encryptor::with_recipients(recipients)?;
-    let mut writer = encriptor.wrap_output(ArmoredWriter::wrap_output(
-        &tpm_file,
-        age::armor::Format::AsciiArmor,
-    )?)?;
-
-    let size = io::copy(&mut reader, &mut writer)?;
-
-    writer.finish().and_then(|armor| armor.finish())?.flush()?;
-
-    drop(tpm_file);
-
-    if size == 0 && !allow_empty {
-        return Err(eyre!("stdin is empty, not writting secret").note(format!(
-            "you can pass {} to create it anyway",
-            "--allow-empty".blue()
-        )));
-    }
-
-    let mut tpm_file = tpm.open()?;
-
-    let mut secret = SecretFile::open(file, true)?;
-
-    io::copy(&mut tpm_file, &mut secret.file)?;
-
-    info!("secret created");
+    info!("secret encrypted");
 
     Ok(())
 }
@@ -310,17 +322,17 @@ mod tests {
         let file = tmp.path().join("secret.txt.pem");
 
         let plaintext = "Hello World!";
-        let reader = Cursor::new(plaintext);
+        let mut reader = Cursor::new(plaintext);
 
-        // TODO: pass custom config
-        let config = Config::read(None).unwrap();
+        let config = Config::mock();
 
-        encrypt_from_reader(reader, &config, false, &file).unwrap();
+        SecretFile::new(&file, false)
+            .encrypt_from(&config, &mut reader)
+            .unwrap();
 
         let mut out = Cursor::new(Vec::new());
 
-        SecretFile::open(&file, false)
-            .unwrap()
+        SecretFile::new(&file, false)
             .decrypt_to(&config, &mut out)
             .unwrap();
 
@@ -336,23 +348,25 @@ mod tests {
 
         let file = tmp.path().join("secret.txt.pem");
 
-        // TODO: pass custom config
-        let config = Config::read(None).unwrap();
+        let config = Config::mock();
 
         let plaintext = "Hello World!";
-        let reader = Cursor::new(plaintext);
+        let mut reader = Cursor::new(plaintext);
 
-        encrypt_from_reader(reader, &config, false, &file).unwrap();
+        SecretFile::new(&file, false)
+            .encrypt_from(&config, &mut reader)
+            .unwrap();
 
         let plaintext = "Hello";
-        let reader = Cursor::new(plaintext);
+        let mut reader = Cursor::new(plaintext);
 
-        encrypt_from_reader(reader, &config, false, &file).unwrap();
+        SecretFile::new(&file, false)
+            .encrypt_from(&config, &mut reader)
+            .unwrap();
 
         let mut out = Cursor::new(Vec::new());
 
-        SecretFile::open(&file, false)
-            .unwrap()
+        SecretFile::new(&file, false)
             .decrypt_to(&config, &mut out)
             .unwrap();
 
@@ -368,23 +382,25 @@ mod tests {
 
         let file = tmp.path().join("secret.txt.pem");
 
-        // TODO: pass custom config
-        let config = Config::read(None).unwrap();
+        let config = Config::mock();
 
         let plaintext = "Hello";
-        let reader = Cursor::new(plaintext);
+        let mut reader = Cursor::new(plaintext);
 
-        encrypt_from_reader(reader, &config, false, &file).unwrap();
+        SecretFile::new(&file, false)
+            .encrypt_from(&config, &mut reader)
+            .unwrap();
 
         let plaintext = "Hello world";
-        let reader = Cursor::new(plaintext);
+        let mut reader = Cursor::new(plaintext);
 
-        encrypt_from_reader(reader, &config, false, &file).unwrap();
+        SecretFile::new(&file, false)
+            .encrypt_from(&config, &mut reader)
+            .unwrap();
 
         let mut out = Cursor::new(Vec::new());
 
-        SecretFile::open(&file, false)
-            .unwrap()
+        SecretFile::new(&file, false)
             .decrypt_to(&config, &mut out)
             .unwrap();
 
@@ -400,23 +416,55 @@ mod tests {
 
         let file = tmp.path().join("secret.txt.pem");
 
-        // TODO: pass custom config
-        let config = Config::read(None).unwrap();
+        let config = Config::mock();
 
         let plaintext = vec![b'a'; 2048];
-        let reader = Cursor::new(plaintext);
+        let mut reader = Cursor::new(plaintext);
 
-        encrypt_from_reader(reader, &config, false, &file).unwrap();
+        SecretFile::new(&file, false)
+            .encrypt_from(&config, &mut reader)
+            .unwrap();
 
         let plaintext = vec![b'b'; 10];
-        let reader = Cursor::new(plaintext.clone());
+        let mut reader = Cursor::new(plaintext.clone());
 
-        encrypt_from_reader(reader, &config, false, &file).unwrap();
+        SecretFile::new(&file, false)
+            .encrypt_from(&config, &mut reader)
+            .unwrap();
 
         let mut out = Cursor::new(Vec::new());
 
-        SecretFile::open(&file, false)
-            .unwrap()
+        SecretFile::new(&file, false)
+            .decrypt_to(&config, &mut out)
+            .unwrap();
+
+        let inner = out.into_inner();
+
+        assert_eq!(inner, plaintext);
+    }
+
+    #[test]
+    fn rotate_encrypted_file() {
+        let tmp = TempDir::new().unwrap();
+
+        let file = tmp.path().join("secret.txt.pem");
+
+        let config = Config::mock();
+
+        let plaintext = b"Hello world!";
+        let mut reader = Cursor::new(plaintext);
+
+        SecretFile::new(&file, false)
+            .encrypt_from(&config, &mut reader)
+            .unwrap();
+
+        let config = config.use_other_recipent();
+
+        SecretFile::new(&file, false).rotate(&config).unwrap();
+
+        let mut out = Cursor::new(Vec::new());
+
+        SecretFile::new(&file, false)
             .decrypt_to(&config, &mut out)
             .unwrap();
 

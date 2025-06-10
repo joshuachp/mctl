@@ -4,7 +4,6 @@ use self::config::Config;
 
 pub mod config;
 pub mod secret;
-pub mod sync;
 pub(crate) mod util;
 
 pub static CONFIG: OnceLock<Config> = OnceLock::new();

@@ -8,13 +8,14 @@ use std::{
 };
 
 use age::x25519::{Identity, Recipient};
-use color_eyre::{owo_colors::OwoColorize, Section};
+use color_eyre::{Section, owo_colors::OwoColorize};
 use config::FileFormat;
-use eyre::{ensure, eyre, OptionExt, WrapErr};
+use eyre::{OptionExt, WrapErr, ensure, eyre};
 use serde::Deserialize;
 use tracing::{debug, error};
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     pub(crate) editor: String,
     pub(crate) dirs: Directories,
@@ -64,16 +65,6 @@ impl Config {
     }
 
     fn validate(self) -> eyre::Result<Self> {
-        if !self.dirs.repository.is_dir() {
-            let err =
-                eyre!("The repository directory must be set to a valid direcotry").note(format!(
-                    "Make sure {} is a valid directory",
-                    self.dirs.repository.display().blue()
-                ));
-
-            return Err(err);
-        };
-
         check_private_file(&self.secrets.key_file)?;
         check_private_file(&self.secrets.recipients_file)?;
 
@@ -222,8 +213,6 @@ pub(crate) struct Directories {
     /// Cache directory
     #[serde(default = "default_cache_dir")]
     cache: PathBuf,
-    /// Path to the repository
-    pub(crate) repository: PathBuf,
 }
 
 impl Directories {
@@ -290,4 +279,37 @@ fn check_private_file(path: &Path) -> Result<(), eyre::Error> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+
+    impl Config {
+        pub(crate) fn mock() -> Self {
+            let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+            let cfg = Self {
+                editor: "cat".to_string(),
+                dirs: Directories {
+                    cache: default_cache_dir(),
+                },
+                secrets: Secrets {
+                    key_file: dir.join("assets/test.key.txt"),
+                    recipients_file: dir.join("assets/test.recipients.txt"),
+                },
+            };
+
+            cfg.validate().unwrap()
+        }
+
+        pub(crate) fn use_other_recipent(mut self) -> Self {
+            let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            dir.push("assets/test.recipients.2.txt");
+
+            self.secrets.recipients_file = dir;
+
+            self.validate().unwrap()
+        }
+    }
 }
