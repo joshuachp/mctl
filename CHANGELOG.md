@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/joshuachp/mctl/compare/v0.2.0...v0.2.1) (2025-07-03)
+
+
+### Bug Fixes
+
+* **secret:** rotate would not write new secret ([f8a9d85](https://github.com/joshuachp/mctl/commit/f8a9d8571e6a8d500e119553f2f74a8d12ee6aa2))
+* **secret:** rotate would not write new secret ([9328e39](https://github.com/joshuachp/mctl/commit/9328e3916d6781299d68666ef6fe54d09705ffad))
+
 ## [0.2.0](https://github.com/joshuachp/mctl/compare/v0.1.2...v0.2.0) (2025-06-10)
 
 
