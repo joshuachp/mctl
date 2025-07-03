@@ -236,7 +236,9 @@ impl<'a> SecretFile<'a> {
     }
 
     fn rotate(&self, config: &Config) -> eyre::Result<()> {
-        let tmp = self.decrypt_to_tmp(&config)?;
+        let mut tmp = self.decrypt_to_tmp(&config)?;
+        // Force re-encryption
+        tmp.hash.take();
         self.encrypt_from_tmp(&config, tmp)?;
 
         Ok(())
@@ -311,6 +313,7 @@ pub fn rotate(file: &Path) -> eyre::Result<()> {
 mod tests {
     use std::io::Cursor;
 
+    use pretty_assertions::assert_ne;
     use tempfile::TempDir;
 
     use super::*;
@@ -458,9 +461,13 @@ mod tests {
             .encrypt_from(&config, &mut reader)
             .unwrap();
 
+        let before = fs::read_to_string(&file).unwrap();
+
         let config = config.use_other_recipent();
 
         SecretFile::new(&file, false).rotate(&config).unwrap();
+
+        let after = fs::read_to_string(&file).unwrap();
 
         let mut out = Cursor::new(Vec::new());
 
@@ -471,5 +478,6 @@ mod tests {
         let inner = out.into_inner();
 
         assert_eq!(inner, plaintext);
+        assert_ne!(before, after);
     }
 }
