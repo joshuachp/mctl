@@ -33,7 +33,7 @@ jobs:
       - name: install dependencies
         run: |
           dnf install -y git make rustc cargo jq fedora-packager rpmlint
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # BUG: fixes permission in github actions container
       - name: set safe git directory
         run: |
