@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/joshuachp/mctl/compare/v0.2.1...v0.2.2) (2025-08-23)
+
+
+### Bug Fixes
+
+* **edit:** check parent directory ([17a0bcc](https://github.com/joshuachp/mctl/commit/17a0bccdd0d40b8388ba0f050390dd976b75fb7d))
+* **edit:** check parent directory ([fcd4f5a](https://github.com/joshuachp/mctl/commit/fcd4f5a79fc726f254ae3937a0a2a192c0df3be0))
+
 ## [0.2.1](https://github.com/joshuachp/mctl/compare/v0.2.0...v0.2.1) (2025-07-03)
 
 

@@ -4,7 +4,7 @@
 
 Name:           rust-mctl
 # x-release-please-start-version
-Version:        0.2.1
+Version:        0.2.2
 # x-release-please-end-version
 Release:        %autorelease
 Summary:        Cli to manage machines and configurations
