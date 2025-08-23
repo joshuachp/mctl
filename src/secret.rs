@@ -1,16 +1,12 @@
-use std::{
-    ffi::{OsStr, OsString},
-    fs::{self, File},
-    io::{self, stdin, stdout},
-    os::unix::fs::OpenOptionsExt,
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::ffi::{OsStr, OsString};
+use std::fs::{self, File};
+use std::io::{self, stdin, stdout};
+use std::os::unix::fs::OpenOptionsExt;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
-use age::{
-    Decryptor, Identity, Recipient,
-    armor::{ArmoredReader, ArmoredWriter},
-};
+use age::armor::{ArmoredReader, ArmoredWriter};
+use age::{Decryptor, Identity, Recipient};
 use blake3::Hash;
 use color_eyre::{Section, owo_colors::OwoColorize};
 use eyre::{Context, bail, eyre};
@@ -236,10 +232,10 @@ impl<'a> SecretFile<'a> {
     }
 
     fn rotate(&self, config: &Config) -> eyre::Result<()> {
-        let mut tmp = self.decrypt_to_tmp(&config)?;
+        let mut tmp = self.decrypt_to_tmp(config)?;
         // Force re-encryption
         tmp.hash.take();
-        self.encrypt_from_tmp(&config, tmp)?;
+        self.encrypt_from_tmp(config, tmp)?;
 
         Ok(())
     }
