@@ -4,6 +4,8 @@ use std::{
 };
 
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use eyre::eyre;
+use tracing::debug;
 
 #[derive(Debug, Parser)]
 #[clap(version, about, bin_name = env!("CARGO_BIN_NAME"))]
@@ -62,6 +64,14 @@ impl Secret {
                 allow_empty,
                 file,
             } => {
+                if let Some(parent) = file.parent() {
+                    debug!(parent_path = %parent.display());
+
+                    if !parent.metadata()?.is_dir() {
+                        return Err(eyre!("parent is not a directory: {}", parent.display()));
+                    }
+                }
+
                 if *stdin {
                     return mctl::secret::from_stdin(*allow_empty, file);
                 }
