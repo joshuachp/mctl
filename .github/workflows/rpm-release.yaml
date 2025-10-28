@@ -58,7 +58,7 @@ jobs:
     needs: create-sources
     steps:
       - name: download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: sources
       - name: upload to relase
