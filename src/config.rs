@@ -25,7 +25,7 @@ pub struct Config {
 impl Config {
     pub fn read(custom_conf: Option<&Path>) -> eyre::Result<Self> {
         let config_dir = dirs::config_local_dir()
-            .ok_or_eyre("couldn't determin configuration directory")?
+            .ok_or_eyre("couldn't determine configuration directory")?
             .join(env!("CARGO_PKG_NAME"));
 
         let main_config =
@@ -303,7 +303,7 @@ pub(crate) mod tests {
             cfg.validate().unwrap()
         }
 
-        pub(crate) fn use_other_recipent(mut self) -> Self {
+        pub(crate) fn use_other_recipient(mut self) -> Self {
             let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             dir.push("assets/test.recipients.2.txt");
 

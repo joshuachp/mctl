@@ -72,7 +72,7 @@ impl TempFile {
         Ok(file)
     }
 
-    fn fom_secret(secret_path: &Path, cache_dir: &Path) -> Self {
+    fn from_secret(secret_path: &Path, cache_dir: &Path) -> Self {
         let ext = secret_path
             .file_name()
             .and_then(OsStr::to_str)
@@ -179,7 +179,7 @@ impl<'a> SecretFile<'a> {
 
     /// Decrypts the secret to a temp file, returning the hash if the secret already exists
     fn decrypt_to_tmp(&self, config: &Config) -> eyre::Result<TempFile> {
-        let mut tmp = TempFile::fom_secret(self.path, config.dirs.cache()?);
+        let mut tmp = TempFile::from_secret(self.path, config.dirs.cache()?);
 
         if !self.path.try_exists()? {
             info!("new secret file");
@@ -276,7 +276,7 @@ pub fn from_stdin(allow_empty: bool, file: &Path) -> eyre::Result<()> {
 
     SecretFile::new(&tmp.path, allow_empty).encrypt_from(config, &mut stdin)?;
 
-    fs::copy(&tmp.path, file).wrap_err("coudl't copy temp file")?;
+    fs::copy(&tmp.path, file).wrap_err("couldn't copy temp file")?;
 
     info!("secret encrypted");
 
@@ -459,7 +459,7 @@ mod tests {
 
         let before = fs::read_to_string(&file).unwrap();
 
-        let config = config.use_other_recipent();
+        let config = config.use_other_recipient();
 
         SecretFile::new(&file, false).rotate(&config).unwrap();
 
