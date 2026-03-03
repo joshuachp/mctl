@@ -19,6 +19,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 jobs:
+  common:
+    uses: ./.github/workflows/common.yaml
   check:
     uses: ./.github/workflows/check.yaml
   test:

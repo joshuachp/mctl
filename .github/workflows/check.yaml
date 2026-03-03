@@ -24,8 +24,7 @@ jobs:
         with:
           submodules: true
       - uses: actions-rust-lang/setup-rust-toolchain@v1.15.3
-      - name: cargo fmt
-        run: cargo fmt --check --all
+      - run: cargo fmt --check --all
   clippy:
     runs-on: ubuntu-24.04
     steps:
@@ -48,10 +47,8 @@ jobs:
         with:
           toolchain: nightly
       - uses: mozilla-actions/sccache-action@v0.0.9
-      - name: Install cargo-docs-rs
-        uses: dtolnay/install@cargo-docs-rs
-      - run: |
-          cargo docs-rs --locked -p "$MAIN_CRATE"
+      - uses: dtolnay/install@cargo-docs-rs
+      - run: cargo +nightly docs-rs --locked -p "$MAIN_CRATE"
   features:
     runs-on: ubuntu-24.04
     steps:
