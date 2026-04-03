@@ -21,6 +21,11 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Manages the secrets
+    Agent {
+        #[command(subcommand)]
+        command: Agent,
+    },
+    /// Manages the secrets
     Secret {
         #[command(subcommand)]
         command: Secret,
@@ -30,6 +35,17 @@ pub enum Command {
         #[command(subcommand)]
         command: Utils,
     },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Agent {
+    Config,
+}
+
+impl Agent {
+    pub fn run(self) -> eyre::Result<()> {
+        Ok(())
+    }
 }
 
 #[derive(Debug, Subcommand)]

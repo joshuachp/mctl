@@ -926,6 +926,7 @@ dependencies = [
  "serde",
  "tempfile",
  "tracing",
+ "tracing-error",
  "tracing-subscriber",
  "zeroize",
 ]
