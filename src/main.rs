@@ -12,6 +12,7 @@ fn main() -> eyre::Result<()> {
     color_eyre::install()?;
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
+        .with(tracing_error::ErrorLayer::default())
         .with(
             EnvFilter::builder()
                 .with_default_directive(LevelFilter::INFO.into())
@@ -29,6 +30,9 @@ fn main() -> eyre::Result<()> {
     CONFIG.get_or_init(|| config);
 
     match cli.command {
+        Command::Agent { command } => {
+            command.run()?;
+        }
         Command::Secret { command } => {
             command.run()?;
         }
