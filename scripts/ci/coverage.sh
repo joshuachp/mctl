@@ -56,11 +56,9 @@ if [[ -z "${EXPORT_FOR_CI:-}" ]]; then
     cargo llvm-cov report
     cargo llvm-cov report --html
 else
-    {
-        echo '# Code Coverage'
-        echo ''
-        cargo llvm-cov report
-    } >>"$GITHUB_STEP_SUMMARY"
+    echo '# Code Coverage' >>"$GITHUB_STEP_SUMMARY"
+    echo '' >>"$GITHUB_STEP_SUMMARY"
+    cargo llvm-cov report >>"$GITHUB_STEP_SUMMARY"
 fi
 
 if [[ -n "${EXPORT_BASE_COMMIT:-}" ]]; then

@@ -1,30 +1,30 @@
 [package]
 name = "mctl"
 version = "0.2.2"
-categories = ["command-line-utilities"]
 edition = "2024"
-keywords = ["cli", "deploy"]
-license = "MIT OR APACHE-2.0"
+description = "Cli to manage machines and configurations"
 readme = "README.md"
 repository = "https://github.com/joshuachp/mctl"
-description = "Cli to manage machines and configurations"
+license = "MIT OR APACHE-2.0"
+keywords = ["cli", "deploy"]
+categories = ["command-line-utilities"]
 
 [dependencies]
-age = { version = "0.11.1", features = ["armor"] }
-blake3 = { version = "1.8.2", features = ["zeroize"] }
-clap = { version = "4.5.39", features = ["derive"] }
-clap_complete = "4.5.51"
-clap_mangen = "0.2.26"
-color-eyre = "0.6.4"
-config = { version = "0.15.11", features = ["toml"], default-features = false }
+age = { version = "0.11.3", features = ["armor"] }
+blake3 = { version = "1.8.5", features = ["zeroize"] }
+clap = { version = "4.6.1", features = ["derive"] }
+clap_complete = "4.6.4"
+clap_mangen = "0.3.0"
+color-eyre = "0.6.5"
+config = { version = "0.15.22", default-features = false, features = ["toml"] }
 dirs = "6.0.0"
 eyre = "0.6.12"
-rand = "0.9.3"
-serde = { version = "1.0.219", features = ["derive"] }
-tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-zeroize = "1.8.1"
+rand = "0.10.1"
+serde = { version = "1.0.228", features = ["derive"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+zeroize = "1.8.2"
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
-tempfile = "3.20.0"
+tempfile = "3.27.0"
